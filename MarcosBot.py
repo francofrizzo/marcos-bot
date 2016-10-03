@@ -8,6 +8,7 @@ import os
 import argparse
 import signal
 import random
+import json
 
 
 # Replace ascii with utf-8 encoding
@@ -67,8 +68,12 @@ class MarcosBot:
         self.bot = telepot.Bot(token)
         self.conversations = dict()
         self.log = Log(filename=log_file)
+        self.log.log("Hello!")
         self.easter_eggs = easter_eggs
         self.username = self.bot.getMe()["username"]
+
+    def __del__(self):
+        self.log.log("Goodbye!")
 
     def listen(self):
         self.bot.message_loop(self.handle)
@@ -78,7 +83,7 @@ class MarcosBot:
         try:
             content_type, chat_type, chat_id = telepot.glance(message)
         except KeyError:
-            self.log.log("Error: unrecognized message type")
+            self.log.log("Error: unrecognized message type", message["chat"]["id"], get_full_name(message))
             return
 
         conversation = self._add_conversation(chat_id)
@@ -210,20 +215,20 @@ parser.add_argument('-l', metavar="log_file", type=str, dest='log_file',
 args = parser.parse_args()
 
 
-token = "298046017:AAFhBT_YwGxKwq6FMV-PQP9BXtkeDNqf2Fs"
-special_users = [144412810]
+with open("config.json") as config_file:
+    config = json.load(config_file)
+
+
+token = config["token"]
+
+special_users = [int(user) for user in config["special_users"]]
+
+easter_eggs = dict()
+for conversation in config["easter_eggs"]:
+    easter_eggs[int(conversation)] = config["easter_eggs"][conversation]
+
 log_file = args.log_file if args.log_file else None
 
-easter_eggs = {
-    -1001069941728: {
-        "follow_with": {
-            "walter": {
-                "😍": 1.0/3.0,
-                "😘": 1.0/3.0
-            }
-        }
-    }
-}
 
 bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs)
 
