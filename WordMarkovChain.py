@@ -3,6 +3,7 @@
 import random
 import gzip
 
+
 class RandomCollection:
 
     def __init__(self):
@@ -55,7 +56,7 @@ class RandomCollection:
         else:
             return 0
 
-    def total_ocurrences(self):
+    def total_occurrences(self):
         return self.total
 
     def probability_of(self, item):
@@ -80,7 +81,10 @@ class Word:
         self.transitions = RandomCollection()
 
     def __str__(self):
-        return str(self.string)
+        return self.string.__str__()
+
+    def __unicode__(self):
+        return self.string.decode("utf-8")
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -174,15 +178,13 @@ class WordMarkovChain:
 
     def remove_occurrence_at_end(self, string, count = 1):
         word = self._get_word(string)
-        if word:
+        if type(word) == Word:
             return word.remove_occurrence_at_end(count)
         else:
             return False
 
-    def add_message(self, message):
-        strings = message.lower().split()
-
-        if len(message) > 0:
+    def add_message(self, strings):
+        if len(strings) > 0:
             word1 = self._add_word(strings.pop(0))
             self.start_words.add_occurrence(word1)
 
@@ -204,14 +206,14 @@ class WordMarkovChain:
         while cur_word:
             if random.random() < self.randomness and not start:
                 cur_word = self._generate_random_word()
-            message.append(str(cur_word))
+            message.append(unicode(cur_word))
             cur_word = cur_word.generate_next_word()
             start = False
 
         return " ".join(message)
 
     def set_randomness(self, p):
-        if 0 <= p and p <= 1:
+        if 0 <= p <= 1:
             self.randomness = p
         else:
             raise(ValueError, "Randomness should be a number between 0 and 1")

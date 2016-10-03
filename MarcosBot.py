@@ -1,264 +1,242 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from WordMarkovChain import WordMarkovChain
-
-import telebot
-import random
-import re
+from Conversation import Conversation
+import telepot
+from datetime import datetime
 import time
-import datetime
+import os
 import argparse
-import pickle
-import traceback
+import signal
 import random
 
-# Replace ascii with unicode encoding
+
+# Replace ascii with utf-8 encoding
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
 
-# Auxiliary functions
-def print_username(message):
+def get_full_name(message):
     username = ""
-    if message.from_user.first_name:
-        username += message.from_user.first_name
-    if message.from_user.first_name and message.from_user.last_name:
+    if "first_name" in message["from"]:
+        username += message["from"]["first_name"]
+    if "first_name" in message["from"] and "last_name" in message["from"]:
         username += " "
-    if message.from_user.last_name:
-        username += message.from_user.last_name
+    if "last_name" in message["from"]:
+        username += message["from"]["last_name"]
 
-    chat_is_private = message.chat.type == "private"
-
-    return ("{" if chat_is_private else "(") + username + ("}" if chat_is_private else ")")
-
-def current_datetime():
-    return datetime.datetime.now().strftime("%d/%m/%y %H:%M:%S")
-
-def log(message_content):
-    message = "[" + current_datetime() + "] " + str(message_content)
-
-    f = open('logs/marcos.log', 'a')
-    f.write(message + "\n")
-    f.close()
-
-    print message
-
-def load_chain_legacy(filename):
-    with open(filename + '_count.pkl', 'rb') as f:
-        chain_count = pickle.load(f)
-
-    chain = WordMarkovChain()
-
-    for word1 in chain_count:
-        for word2 in chain_count[word1]:
-            for i in range(chain_count[word1][word2]):
-                if word1 == 0:
-                    chain.add_occurrence_at_start(word2)
-                elif word2 == 1:
-                    chain.add_occurrence_at_end(word1)
-                else:
-                    chain.add_transition_between(word1, word2)
-
-    return chain
-
-# IDs of users with special permissions
-special_users = [144412810]
+    return username
 
 
-# Parsing arguments
+class Log:
+    def __init__(self, filename = None, log_to_stdout = True):
+        self.log_to_stdout = log_to_stdout
+        if type(filename) in [str, unicode]:
+            self.log_to_file = True
+            self.filename = filename
+        else:
+            self.log_to_file = False
+
+    def log(self, text, chat_id=None, username=None, private=False):
+        now = datetime.now().strftime("%d/%m/%y %H:%M:%S")
+        message = "[" + now + "] "
+        if chat_id:
+            message += "<" + unicode(chat_id) + "> "
+        if username:
+            if private:
+                message += "{" + unicode(username) + "} "
+            else:
+                message += "(" + unicode(username) + ") "
+        message += unicode(text)
+
+        if self.log_to_stdout:
+            print message
+        if self.log_to_file:
+            f = open(self.filename, 'a')
+            f.write(message.encode("utf-8") + "\n")
+            f.close()
+
+
+class MarcosBot:
+    public_commands = ["message", "beginwith", "endwith", "use", "chain", "reversechain"]
+    private_commands = ["setrandomness", "removeword", "removetransition", "backup"]
+
+    def __init__(self, token, special_users, log_file=None, easter_eggs={}):
+        self.token = token
+        self.special_users = special_users
+        self.bot = telepot.Bot(token)
+        self.conversations = dict()
+        self.log = Log(filename=log_file)
+        self.easter_eggs = easter_eggs
+        self.username = self.bot.getMe()["username"]
+
+    def listen(self):
+        self.bot.message_loop(self.handle)
+        self.log.log("Listening...")
+
+    def handle(self, message):
+        content_type, chat_type, chat_id = telepot.glance(message)
+
+        conversation = self._add_conversation(chat_id)
+
+        if content_type == "text":
+            text = message["text"]
+            spl_text = text.split()
+
+            if len(spl_text) > 0 and spl_text[0][0] == "/":
+                command = spl_text[0][1:].split("@")
+                if len(command) < 2 or command[1] == self.username:
+                    command = command[0]
+                    args = spl_text[1:]
+                    if command in self.public_commands:
+                        handler = getattr(self, "handle_" + command)
+                        handler(message, conversation, args)
+                        return
+                    elif command in self.private_commands:
+                        if message["from"]["id"] in special_users:
+                            handler = getattr(self, "handle_" + command)
+                            handler(message, conversation, args)
+                        else:
+                            self.log.log("Error (unauthorized attempt to execute /" + unicode(command) + ")", chat_id, get_full_name(message))
+                        return
+
+            conversation.add_message(text)
+            self.log.log("Recieved: " + text, chat_id, get_full_name(message))
+
+    def handle_message(self, message, conversation, args):
+        generated_message = conversation.generate_message()
+        if not generated_message:
+            generated_message = "My database seems to be empty!"
+        self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+        self.log.log("Generated: " + generated_message, conversation.chat_id, get_full_name(message))
+
+    def handle_beginwith(self, message, conversation, args):
+        if len(args) > 0:
+            generated_message = conversation.generate_message_beginning_with(args)
+            self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+            self.log.log("Generated (/beginwith " + " ".join(args) + "): " + generated_message, conversation.chat_id, get_full_name(message))
+        else:
+            self.log.log("Error (empty /beginwith)", conversation.chat_id, get_full_name(message))
+
+    def handle_endwith(self, message, conversation, args):
+        if len(args) > 0:
+            generated_message = conversation.generate_message_ending_with(args)
+            self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+            self.log.log("Generated (/endwith " + " ".join(args) + "): " + generated_message, conversation.chat_id, get_full_name(message))
+        else:
+            self.log.log("Error (empty /endwith)", conversation.chat_id, get_full_name(message))
+
+    def handle_use(self, message, conversation, args):
+        if len(args) > 0:
+            generated_message = conversation.generate_message_containing(args)
+            self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+            self.log.log("Generated (/use " + " ".join(args) + "): " + generated_message, conversation.chat_id, get_full_name(message))
+        else:
+            self.log.log("Error (empty /use)", conversation.chat_id, get_full_name(message))
+
+    def handle_chain(self, message, conversation, args):
+        if len(args) > 0:
+            chain = conversation.print_chain(args[0])
+            self.bot.sendMessage(conversation.chat_id, chain, reply_to_message_id =message["message_id"])
+            self.log.log("Printed chain for '" + args[0] + "'", conversation.chat_id, get_full_name(message))
+        else:
+            self.log.log("Error (empty /chain)", conversation.chat_id, get_full_name(message))
+
+    def handle_reversechain(self, message, conversation, args):
+        if len(args) > 0:
+            chain = conversation.print_chain(args[0], reverse=True)
+            self.bot.sendMessage(conversation.chat_id, chain, reply_to_message_id =message["message_id"])
+            self.log.log("Printed reverse chain for '" + args[0] + "'", conversation.chat_id, get_full_name(message))
+        else:
+            self.log.log("Error (empty /reversechain)", conversation.chat_id, get_full_name(message))
+
+    def import_chain(self, chat_id, filename):
+        chat_id = int(chat_id)
+        conversation = self._add_conversation(chat_id)
+        self.log.log("Importing chain for chat id " + unicode(chat_id) + " from '" + unicode(filename) + "'")
+        conversation.import_chain(filename)
+
+    def export_chain(self, chat_id, filename):
+        chat_id = int(chat_id)
+        if chat_id in self.conversations:
+            conversation = self.conversations[chat_id]
+            conversation.export_chain(filename)
+            self.log.log("Exporting chain for chat id " + unicode(chat_id) + " to '" + unicode(filename) + "'")
+        else:
+            self.log.log("Error: exporting chain for chat id " + unicode(chat_id) + " (chat does not exist)")
+
+    def export_all_chains(self, directory):
+        self.log.log("Exporting all data...")
+        for chat_id in self.conversations:
+            self.conversations[chat_id].export_chain(directory + "/" + str(chat_id))
+            self.log.log("Exporting chain for chat id " + unicode(chat_id) + " to '" + unicode(directory) + "/" + unicode(chat_id) + "'")
+
+    def _add_conversation(self, chat_id):
+        if chat_id in self.conversations:
+            conversation = self.conversations[chat_id]
+        else:
+            conversation = Conversation(chat_id)
+            self.conversations[chat_id] = conversation
+            self.log.log("Adding conversation " + unicode(chat_id))
+        return conversation
+
+    def _apply_easter_eggs(self, message, chat_id):
+        if chat_id in self.easter_eggs:
+            if "follow_with" in self.easter_eggs[chat_id]:
+                follow_with = self.easter_eggs[chat_id]["follow_with"]
+                message = message.split()
+                for i in range(len(message)):
+                    if message[i] in follow_with:
+                        accum = 0
+                        for egg in follow_with[message[i]]:
+                            chance = follow_with[message[i]][egg]
+                            if random.uniform(0, 1 - accum) < chance:
+                                message[i] += " " + egg.decode("utf-8")
+                                break
+                message = " ".join(message)
+        return message
+
+
 parser = argparse.ArgumentParser(description='Hello, I am the Marcos Bot.')
-parser.add_argument('-f', metavar="file", type=str, dest='file',
-                   help='file from where to load data')
-parser.add_argument('--legacy', dest='legacy', action='store_true',
-                   help='read file in legacy mode')
+parser.add_argument('-d', metavar="data_dir", type=str, dest='data_dir',
+                    help='directory from where to load and store data')
+parser.add_argument('-l', metavar="log_file", type=str, dest='log_file',
+                    help='file where to save logging information')
 
 args = parser.parse_args()
 
 
-# Initializing
-bot = telebot.TeleBot("298046017:AAFhBT_YwGxKwq6FMV-PQP9BXtkeDNqf2Fs")
-chain = WordMarkovChain()
-reverse_chain = WordMarkovChain()
+token = "298046017:AAFhBT_YwGxKwq6FMV-PQP9BXtkeDNqf2Fs"
+special_users = [144412810]
+log_file = args.log_file if args.log_file else None
 
-if args.file:
-    if args.legacy:
-        chain = load_chain_legacy(args.file)
-    else:
-        chain.import_chain(args.file)
-        reverse_chain.import_chain(args.file, True)
+easter_eggs = {
+    -1001069941728: {
+        "follow_with": {
+            "walter": {
+                "😍": 1.0/3.0,
+                "😘": 1.0/3.0
+            }
+        }
+    }
+}
 
-# Public commands
-@bot.message_handler(commands=['message'])
-def bot_send_message(message):
-    generated_message = chain.build_message()
-    if not generated_message:
-        generated_message = "My database seems to be empty!"
-    bot.send_message(message.chat.id, generated_message)
-    log("[G] " + print_username(message) + ": " + generated_message)
+bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs)
 
-@bot.message_handler(commands=['beginwith'])
-def bot_begin_with(message):
-    message_content = message.text.split()
-    if len(message_content) > 1:
-        message_content.pop(0)
-        start = message_content.pop().lower()
-        if start in ["ladrón", "chanta", "chorro"]:   # Easter egg
-            start = "walter"
-        if len(message_content) > 0:
-            message_content = (" ".join(message_content)) + " "
-        else:
-            message_content = ""
-        generated_message = message_content + chain.build_message(start)
-        if generated_message:
-            bot.send_message(message.chat.id, generated_message)
-        log("[B] " + print_username(message) + ": " + generated_message)
-    else:
-        log("[E] " + print_username(message) + ": Error (empty /beginwith)")
+if args.data_dir:
+    for filename in os.listdir(args.data_dir):
+         bot.import_chain(filename, args.data_dir + "/" + filename)
 
-@bot.message_handler(commands=['endwith'])
-def bot_end_with(message):
-    message_content = message.text.split()
-    message_content.reverse()
-    if len(message_content) > 1:
-        message_content.pop()
-        end = message_content.pop().lower()
-        if len(message_content) > 0:
-            message_content.reverse()
-            message_content = " " + (" ".join(message_content))
-        else:
-            message_content = ""
-        generated_message = reverse_chain.build_message(end).split()
-        length = len(generated_message)
-        while length < 2 and random.random() < 0.9:
-            generated_message = reverse_chain.build_message(end).split()
-            length = len(generated_message)
-        generated_message.reverse()
-        generated_message = " ".join(generated_message) + message_content
-        if generated_message:
-            bot.send_message(message.chat.id, generated_message)
-        log("[B] " + print_username(message) + ": " + generated_message)
-    else:
-        log("[E] " + print_username(message) + ": Error (empty /endwith)")
+def save_and_exit(signal, frame):
+    if args.data_dir:
+        bot.export_all_chains(args.data_dir)
+    sys.exit(0)
 
-@bot.message_handler(commands=['printchain'])
-def bot_print_chain(message):
-    try:
-        arg = message.text.split()[1].lower()
-        probabilities = chain.probabilities_for(arg)
-        if probabilities:
-            generated_message = "Probabilities for '" + arg + "':"
-            for word in probabilities:
-                if word:
-                    generated_message += "\n - '" + word + "': " + str(probabilities[word])
-                else:
-                    generated_message += "\n - End of message: " + str(probabilities[word])
-        else:
-            generated_message = "The word '" + arg + "' doesn't seem to be in my database"
-        bot.reply_to(message, generated_message)
-        log("[Printed chain for: " + arg +"] " + print_username(message))
-    except IndexError:
-        log("[E] " + print_username(message) + ": Error (/printchain)")
+signal.signal(signal.SIGINT, save_and_exit)
+signal.signal(signal.SIGTERM, save_and_exit)
 
+bot.listen()
 
-# # Private commands
-@bot.message_handler(commands=['setrandomness'])
-def bot_set_randomness(message):
-    if message.from_user.id in special_users:
-        try:
-            p = float(message.text.split()[1])
-            try:
-                chain.set_randomness(p)
-                bot.reply_to(message, "Randomness set to " + str(p))
-                log("[Randomness set to " + str(p) + "] " + print_username(message))
-            except ValueError:
-                bot.reply_to(message, "Randomness must ve a value between 0 and 1")
-                log("[Error: invalid randomness value] " + print_username(message))
-        except:
-            bot.reply_to(message, "An error occurred")
-            log("[Error: /setrandomness] " + print_username(message))
-    else:
-        bot.reply_to(message, "Who do you think you are?!")
-        log("[Unauthorized: /setrandomness] " + print_username(message))
+while True:
+    time.sleep(10)
 
-@bot.message_handler(commands=['removeword'])
-def bot_remove_word(message):
-    if message.from_user.id in special_users:
-        try:
-            arg = message.text.split()[1].lower()
-            chain.remove_word(arg)
-            bot.reply_to(message, "Removed: " + arg)
-            log("[Removed: " + arg + "] " + print_username(message))
-        except IndexError:
-            bot.reply_to(message, "An error occurred")
-            log("[Error: /removeword] " + print_username(message))
-    else:
-        bot.reply_to(message, "Who do you think you are?!")
-        log("[Unauthorized: /removeword] " + print_username(message))
-
-@bot.message_handler(commands=['removetransition'])
-def remove_transition(message):
-    if message.from_user.id in special_users:
-        try:
-            arg1 = message.text.split()[1].lower()
-            arg2 = message.text.split()[2].lower()
-            chain.remove_transition(arg1, arg2)
-            bot.reply_to(message, "Removed transition: " + arg1 + " -> " + arg2)
-            log("[Removed transition: " + arg1 + " -> " + arg2 + "] " + print_username(message))
-        except IndexError:
-            bot.reply_to(message, "An error occurred")
-            log("[Error: /removetransition] " + print_username(message))
-    else:
-        bot.reply_to(message, "Who do you think you are?!")
-        log("[Unauthorized: /removetransition] " + print_username(message))
-
-@bot.message_handler(commands=['backup'])
-def backup_data(message):
-    if message.from_user.id in special_users:
-        chain.export_chain("marcos_chain.bkp")
-        bot.reply_to(message, "Data was just backuped")
-        log("[Data backuped] " + print_username(message))
-    else:
-        bot.reply_to(message, "Who do you think you are?!")
-        log("[Unauthorized: /backup] " + print_username(message))
-
-
-# Adding new messages (at the end so it capures everything else)
-@bot.message_handler(func=lambda m: True)
-def bot_add_message(message):
-    chain.add_message(message.text)
-    reversed_message = message.text.split()
-    reversed_message.reverse()
-    reverse_chain.add_message(" ".join(reversed_message))
-    log("[R] " + print_username(message) + ": " + message.text)
-
-
-# Let the magic happen!
-retry = True
-wait_for_retry = 0
-while retry:
-    retry = False
-    try:
-        last_try = datetime.datetime.now()
-        bot.polling()
-        chain.export_chain("marcos_chain")
-        log("[Data saved]")
-        log("[Goodbye!]")
-    except Exception as e:
-        if datetime.datetime.now() - last_try > datetime.timedelta(seconds=128):
-            wait_for_retry = 0
-        log("[An error occurred]")
-        log(e)
-        traceback.print_exc()
-        chain.export_chain("marcos_chain.bkp")
-        log("[Data backuped]")
-        retry = True
-        if wait_for_retry == 0:
-            log("[Retrying...]")
-            wait_for_retry = 1
-        else:
-            log("[Retrying in " + str(wait_for_retry) + " seconds...]")
-            time.sleep(wait_for_retry)
-            if wait_for_retry < 64:
-                wait_for_retry = 2 * wait_for_retry
