@@ -75,7 +75,11 @@ class MarcosBot:
         self.log.log("Listening...")
 
     def handle(self, message):
-        content_type, chat_type, chat_id = telepot.glance(message)
+        try:
+            content_type, chat_type, chat_id = telepot.glance(message)
+        except KeyError:
+            self.log.log("Error: unrecognized message type")
+            return
 
         conversation = self._add_conversation(chat_id)
 
@@ -239,4 +243,3 @@ bot.listen()
 
 while True:
     time.sleep(10)
-
