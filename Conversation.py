@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from WordMarkovChain import WordMarkovChain
+import operator
 
 class Conversation:
 
@@ -48,11 +49,11 @@ class Conversation:
             message_extreme = "Beginning of message"
 
         if probabilities:
-            for word in probabilities:
+            for word, prob in reversed(sorted(probabilities.items(), key=operator.itemgetter(1))):
                 if word:
-                    printed_chain += "\n - '" + word.decode("utf-8") + "': " + unicode(probabilities[word])
+                    printed_chain += "\n - '" + word.decode("utf-8") + "': " + unicode(prob)
                 else:
-                    printed_chain += "\n - " + message_extreme + ": " + unicode(probabilities[word])
+                    printed_chain += "\n - " + message_extreme + ": " + unicode(prob)
         else:
             printed_chain = "The word '" + arg + "' doesn't seem to be in my database"
 

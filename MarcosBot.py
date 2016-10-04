@@ -211,8 +211,10 @@ parser.add_argument('-d', metavar="data_dir", type=str, dest='data_dir',
                     help='directory from where to load and store data')
 parser.add_argument('-l', metavar="log_file", type=str, dest='log_file',
                     help='file where to save logging information')
+parser.add_argument('-f', dest='finish', action='store_true',
+                   help='don\'t keep the program running forever')
 
-args = parser.parse_args()
+program_args = parser.parse_args()
 
 
 with open("config.json") as config_file:
@@ -224,21 +226,21 @@ token = config["token"]
 special_users = [int(user) for user in config["special_users"]]
 
 easter_eggs = dict()
-for conversation in config["easter_eggs"]:
-    easter_eggs[int(conversation)] = config["easter_eggs"][conversation]
+for conv in config["easter_eggs"]:
+    easter_eggs[int(conv)] = config["easter_eggs"][conv]
 
-log_file = args.log_file if args.log_file else None
+log_file = program_args.log_file if program_args.log_file else None
 
 
 bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs)
 
-if args.data_dir:
-    for filename in os.listdir(args.data_dir):
-         bot.import_chain(filename, args.data_dir + "/" + filename)
+if program_args.data_dir:
+    for filename in os.listdir(program_args.data_dir):
+         bot.import_chain(filename, program_args.data_dir + "/" + filename)
 
 def save_and_exit(signal, frame):
-    if args.data_dir:
-        bot.export_all_chains(args.data_dir)
+    if program_args.data_dir:
+        bot.export_all_chains(program_args.data_dir)
     sys.exit(0)
 
 signal.signal(signal.SIGINT, save_and_exit)
@@ -246,5 +248,6 @@ signal.signal(signal.SIGTERM, save_and_exit)
 
 bot.listen()
 
-while True:
-    time.sleep(10)
+if not program_args.finish:
+    while True:
+        time.sleep(10)
