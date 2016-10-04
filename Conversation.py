@@ -59,6 +59,13 @@ class Conversation:
 
         return printed_chain
 
+    def set_randomness(self, p):
+        if 0 <= p <= 1:
+            self.chain.set_randomness(p)
+            self.reverse_chain.set_randomness(p)
+        else:
+            raise (ValueError, "Randomness should be a number between 0 and 1")
+
     def import_chain(self, filename):
         self.chain.import_chain(filename)
         self.reverse_chain.import_chain(filename, reverse=True)
