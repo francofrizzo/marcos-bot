@@ -51,7 +51,7 @@ class Log:
         message += unicode(text)
 
         if self.log_to_stdout:
-            print message
+            print message.encode("utf-8")
         if self.log_to_file:
             f = open(self.filename, 'a')
             f.write(message.encode("utf-8") + "\n")
@@ -65,7 +65,7 @@ class MarcosBot:
     public_commands = ["start", "message", "beginwith", "endwith", "use", "chain", "reversechain"]
     private_commands = ["setrandomness", "backup"]
 
-    def __init__(self, token, special_users, log_file=None, easter_eggs={}):
+    def __init__(self, token, special_users, log_file=None, easter_eggs={}, conv_overrides={}):
         self.token = token
         self.special_users = special_users
         self.bot = telepot.Bot(token)
@@ -73,6 +73,7 @@ class MarcosBot:
         self.log = Log(filename=log_file)
         self.log.log("Hello!")
         self.easter_eggs = easter_eggs
+        self.conv_overrides = conv_overrides
         self.username = self.bot.getMe()["username"]
 
     def __del__(self):
@@ -89,11 +90,18 @@ class MarcosBot:
             self.log.log_m("Error: unrecognized message type", message)
             return
 
-        conversation = self._add_conversation(chat_id)
+        if chat_id in self.conv_overrides:
+            eff_chat_id = self.conv_overrides[chat_id]
+        else:
+            eff_chat_id = chat_id
+
+        conversation = self._add_conversation(eff_chat_id)
 
         if content_type == "text":
             text = message["text"]
             spl_text = text.split()
+
+            self.log.log_m("Recieved: " + text, message)
 
             if len(spl_text) > 0 and spl_text[0][0] == "/":
                 command = spl_text[0][1:].split("@")
@@ -113,23 +121,26 @@ class MarcosBot:
                         return
 
             conversation.add_message(text)
-            self.log.log_m("Recieved: " + text, message)
+            self.log.log_m("Added: " + text, message)
+
+        else:
+            self.log.log_m("Ignored non-text message (content type: " + content_type + ")", message)
 
     def handle_start(self, message, conversation, args):
-        self.bot.sendMessage(conversation.chat_id, "Hello! I am Marcos the Bot. Talk to me and I will generate random messages based on the things you say.")
+        self._send_fragmented(conversation.chat_id, "Hello! I am Marcos the Bot. Talk to me and I will generate random messages based on the things you say.")
         self.log.log_m("Greeting sent", message)
 
     def handle_message(self, message, conversation, args):
         generated_message = conversation.generate_message()
         if not generated_message:
             generated_message = "My database seems to be empty! Say something before"
-        self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+        self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
         self.log.log_m("Generated: " + generated_message, message)
 
     def handle_beginwith(self, message, conversation, args):
         if len(args) > 0:
             generated_message = conversation.generate_message_beginning_with(args)
-            self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+            self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
             self.log.log_m("Generated (/beginwith " + " ".join(args) + "): " + generated_message, message)
         else:
             self.log.log_m("Error (empty /beginwith)", message)
@@ -137,7 +148,7 @@ class MarcosBot:
     def handle_endwith(self, message, conversation, args):
         if len(args) > 0:
             generated_message = conversation.generate_message_ending_with(args)
-            self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+            self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
             self.log.log_m("Generated (/endwith " + " ".join(args) + "): " + generated_message, message)
         else:
             self.log.log_m("Error (empty /endwith)", message)
@@ -145,7 +156,7 @@ class MarcosBot:
     def handle_use(self, message, conversation, args):
         if len(args) > 0:
             generated_message = conversation.generate_message_containing(args)
-            self.bot.sendMessage(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+            self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
             self.log.log_m("Generated (/use " + " ".join(args) + "): " + generated_message, message)
         else:
             self.log.log_m("Error (empty /use)", message)
@@ -153,7 +164,7 @@ class MarcosBot:
     def handle_chain(self, message, conversation, args):
         if len(args) > 0:
             chain = conversation.print_chain(args[0])
-            self.bot.sendMessage(conversation.chat_id, chain, reply_to_message_id =message["message_id"])
+            self._send_fragmented(conversation.chat_id, chain, reply_to_message_id =message["message_id"])
             self.log.log_m("Printed chain for '" + args[0] + "'", message)
         else:
             self.log.log_m("Error (empty /chain)", message)
@@ -161,7 +172,7 @@ class MarcosBot:
     def handle_reversechain(self, message, conversation, args):
         if len(args) > 0:
             chain = conversation.print_chain(args[0], reverse=True)
-            self.bot.sendMessage(conversation.chat_id, chain, reply_to_message_id =message["message_id"])
+            self._send_fragmented(conversation.chat_id, chain, reply_to_message_id =message["message_id"])
             self.log.log_m("Printed reverse chain for '" + args[0] + "'", message)
         else:
             self.log.log_m("Error (empty /reversechain)", message)
@@ -171,10 +182,10 @@ class MarcosBot:
             p = float(args[0])
             if 0 <= p <= 1:
                 conversation.set_randomness(p)
-                self.bot.sendMessage(conversation.chat_id, "Randomness set to " + str(p), reply_to_message_id=message["message_id"])
+                self._send_fragmented(conversation.chat_id, "Randomness set to " + str(p), reply_to_message_id=message["message_id"])
                 self.log.log_m("Randomness set to " + str(p), message)
             else:
-                self.bot.sendMessage(conversation.chat_id, "Randomness should be a number between 0 and 1!", reply_to_message_id=message["message_id"])
+                self._send_fragmented(conversation.chat_id, "Randomness should be a number between 0 and 1!", reply_to_message_id=message["message_id"])
                 self.log.log_m("Error (invalid parameter for /setrandomness)", message)
         else:
             self.log.log_m("Error (empty /setrandomness)", message)
@@ -225,6 +236,13 @@ class MarcosBot:
                 message = " ".join(message)
         return message
 
+    def _send_fragmented(self, chat_id, message, **kwargs):
+        while len(message) > 2048:
+            fragment = message[0:2042] + " [...]"
+            self.bot.sendMessage(chat_id, fragment, **kwargs)
+            message = "[...] " + message[2042:]
+        if len(message) > 0:
+            self.bot.sendMessage(chat_id, message, **kwargs)
 
 parser = argparse.ArgumentParser(description='Hello, I am the Marcos Bot.')
 parser.add_argument('-d', metavar="data_dir", type=str, dest='data_dir',
@@ -249,10 +267,15 @@ easter_eggs = dict()
 for conv in config["easter_eggs"]:
     easter_eggs[int(conv)] = config["easter_eggs"][conv]
 
+conv_overrides = dict()
+for conv in config["conv_overrides"]:
+    conv_overrides[int(conv)] = int(config["conv_overrides"][conv])
+
+
 log_file = program_args.log_file if program_args.log_file else None
 
 
-bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs)
+bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs, conv_overrides=conv_overrides)
 
 if program_args.data_dir:
     for filename in os.listdir(program_args.data_dir):
