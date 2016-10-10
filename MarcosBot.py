@@ -65,12 +65,12 @@ class MarcosBot:
     public_commands = ["start", "message", "beginwith", "endwith", "use", "chain", "reversechain"]
     private_commands = ["setrandomness", "backup"]
 
-    def __init__(self, token, special_users, log_file=None, easter_eggs={}, conv_overrides={}):
+    def __init__(self, token, special_users, log_file=None, easter_eggs={}, conv_overrides={}, log_to_stdout=True):
         self.token = token
         self.special_users = special_users
         self.bot = telepot.Bot(token)
         self.conversations = dict()
-        self.log = Log(filename=log_file)
+        self.log = Log(filename=log_file, log_to_stdout=log_to_stdout)
         self.log.log("Hello!")
         self.easter_eggs = easter_eggs
         self.conv_overrides = conv_overrides
@@ -251,6 +251,8 @@ parser.add_argument('-l', metavar="log_file", type=str, dest='log_file',
                     help='file where to save logging information')
 parser.add_argument('-f', dest='finish', action='store_true',
                    help='don\'t keep the program running forever')
+parser.add_argument('-v', dest='log_to_stdout', action='store_true',
+                    help='print debugging information to standard output')
 
 program_args = parser.parse_args()
 
@@ -271,11 +273,11 @@ conv_overrides = dict()
 for conv in config["conv_overrides"]:
     conv_overrides[int(conv)] = int(config["conv_overrides"][conv])
 
-
 log_file = program_args.log_file if program_args.log_file else None
+log_to_stdout = program_args.log_to_stdout
 
 
-bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs, conv_overrides=conv_overrides)
+bot = MarcosBot(token, special_users, log_file=log_file, easter_eggs=easter_eggs, conv_overrides=conv_overrides, log_to_stdout=log_to_stdout)
 
 if program_args.data_dir:
     for filename in os.listdir(program_args.data_dir):
