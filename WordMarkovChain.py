@@ -196,20 +196,40 @@ class WordMarkovChain:
             word1.add_occurrence_at_end()
 
     def build_message(self, start = False):
+        # This list will contain the words of the generated message
         message = []
 
         if start:
+            # If a first word for the message was provided,
+            # retrieves this first word and adds it to the message
             cur_word = self._get_word(start)
+            message.append(unicode(cur_word))
+            # What follows enforces at least a second word in the message
+            next_word = cur_word.generate_next_word()
+            while not next_word:
+                if random.random() < 0.05:
+                    # This is to break infinite loops if the word has no
+                    # non-empty successor
+                    # (Could be improved by looking that up instead of
+                    # relying in randomness)
+                    next_word = self._generate_random_word()
+                else:
+                    next_word = cur_word.generate_next_word()
+            cur_word = next_word
         else:
+            # Generates a random first word for the message
             cur_word = self._generate_first_word()
 
         while cur_word:
-            if random.random() < self.randomness and not start:
+            # While message end has not been reached, keeps adding a word
+            # and generating a next one
+            if random.random() < self.randomness:
+                # With certain chance, generate a completely random word
                 cur_word = self._generate_random_word()
             message.append(unicode(cur_word))
             cur_word = cur_word.generate_next_word()
-            start = False
 
+        # Return the message as a space-joined string
         return " ".join(message)
 
     def set_randomness(self, p):
