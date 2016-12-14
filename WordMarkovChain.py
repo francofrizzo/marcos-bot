@@ -203,6 +203,11 @@ class WordMarkovChain:
             # If a first word for the message was provided,
             # retrieves this first word and adds it to the message
             cur_word = self._get_word(start)
+            if not cur_word:
+                # If the word provided is not in the database, generate
+                # a random one
+                message.append(start)
+                cur_word = self._generate_first_word()
             message.append(unicode(cur_word))
             # What follows enforces at least a second word in the message
             next_word = cur_word.generate_next_word()

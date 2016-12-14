@@ -144,6 +144,7 @@ class MarcosBot:
             self.log.log_m("Generated (/beginwith " + " ".join(args) + "): " + generated_message, message)
         else:
             self.log.log_m("Error (empty /beginwith)", message)
+            self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_endwith(self, message, conversation, args):
         if len(args) > 0:
@@ -152,6 +153,7 @@ class MarcosBot:
             self.log.log_m("Generated (/endwith " + " ".join(args) + "): " + generated_message, message)
         else:
             self.log.log_m("Error (empty /endwith)", message)
+            self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_use(self, message, conversation, args):
         if len(args) > 0:
@@ -160,6 +162,7 @@ class MarcosBot:
             self.log.log_m("Generated (/use " + " ".join(args) + "): " + generated_message, message)
         else:
             self.log.log_m("Error (empty /use)", message)
+            self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_chain(self, message, conversation, args):
         if len(args) > 0:
@@ -168,6 +171,7 @@ class MarcosBot:
             self.log.log_m("Printed chain for '" + args[0] + "'", message)
         else:
             self.log.log_m("Error (empty /chain)", message)
+            self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_reversechain(self, message, conversation, args):
         if len(args) > 0:
@@ -176,6 +180,7 @@ class MarcosBot:
             self.log.log_m("Printed reverse chain for '" + args[0] + "'", message)
         else:
             self.log.log_m("Error (empty /reversechain)", message)
+            self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_setrandomness(self, message, conversation, args):
         if len(args) > 0:
@@ -189,6 +194,7 @@ class MarcosBot:
                 self.log.log_m("Error (invalid parameter for /setrandomness)", message)
         else:
             self.log.log_m("Error (empty /setrandomness)", message)
+            self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def import_chain(self, chat_id, filename):
         chat_id = int(chat_id)
