@@ -103,6 +103,8 @@ class MarcosBot:
 
             self.log.log_m("Recieved: " + text, message)
 
+            self.handle_ayylmao(message, conversation)
+
             if len(spl_text) > 0 and spl_text[0][0] == "/":
                 command = spl_text[0][1:].split("@")
                 if len(command) < 2 or command[1] == self.username:
@@ -195,6 +197,27 @@ class MarcosBot:
         else:
             self.log.log_m("Error (empty /setrandomness)", message)
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
+
+    def handle_ayylmao(self, message, conversation):
+        import re
+
+        match = re.search('rip', text, flags=re.IGNORECASE)
+        if match:
+            self._send_fragmented(conversation.chat_id, "in pieces")
+
+        match = re.search('alien|ayy.*lmao|lmao.*ayy', text, flags=re.IGNORECASE)
+        if match:
+            self._send_fragmented(conversation.chat_id, "ayy lmao")
+        else:
+            match = re.search('ayy(y*)', text, flags=re.IGNORECASE)
+            if match:
+                count = len(match.group(1))
+                self._send_fragmented(conversation.chat_id, "lmao" + "".join(["o" for i in range(count)]))
+
+            match = re.search('lmao(o*)', text, flags=re.IGNORECASE)
+            if match:
+                count = len(match.group(1))
+                self._send_fragmented(conversation.chat_id, "ayy" + "".join(["y" for i in range(count)]))
 
     def import_chain(self, chat_id, filename):
         chat_id = int(chat_id)
