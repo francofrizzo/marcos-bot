@@ -103,7 +103,7 @@ class MarcosBot:
 
             self.log.log_m("Recieved: " + text, message)
 
-            self.handle_ayylmao(message, conversation)
+            self.handle_ayylmao(text, conversation)
 
             if len(spl_text) > 0 and spl_text[0][0] == "/":
                 command = spl_text[0][1:].split("@")
@@ -198,7 +198,7 @@ class MarcosBot:
             self.log.log_m("Error (empty /setrandomness)", message)
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
-    def handle_ayylmao(self, message, conversation):
+    def handle_ayylmao(self, text, conversation):
         import re
 
         match = re.search('rip', text, flags=re.IGNORECASE)
