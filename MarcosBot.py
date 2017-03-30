@@ -266,16 +266,12 @@ class MarcosBot:
         return message
 
     def _send_fragmented(self, chat_id, message, **kwargs):
-        multipleMessages = False
         while len(message) > 2048:
-            multipleMessages = True
             fragment = message[0:2042] + " [...]"
             self.bot.sendMessage(chat_id, fragment, **kwargs)
             message = "[...] " + message[2042:]
         if len(message) > 0:
             self.bot.sendMessage(chat_id, message, **kwargs)
-        if multipleMessages:
-            self.bot.sendMessage(chat_id, "si sos juani, sos un pelotudo, sabelo", **kwargs)
 
 parser = argparse.ArgumentParser(description='Hello, I am the Marcos Bot.')
 parser.add_argument('-d', metavar="data_dir", type=str, dest='data_dir',
