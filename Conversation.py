@@ -2,6 +2,7 @@
 
 from WordMarkovChain import WordMarkovChain
 import operator
+import random
 
 class Conversation:
 
@@ -9,12 +10,23 @@ class Conversation:
         self.chat_id = chat_id
         self.chain = WordMarkovChain()
         self.reverse_chain = WordMarkovChain()
+        self.someones = set()
 
     def add_message(self, message):
         message = message.lower().split()
         self.chain.add_message(message)
         message.reverse()
         self.reverse_chain.add_message(message)
+
+    def add_someone(someone):
+        self.someones.add(someone)
+
+    def is_there_someone():
+        return len(self.someones) > 0
+
+    def get_someone():
+        if len(someone) > 0:
+            return random.sample(self.someones, 1)[0]
 
     def generate_message(self):
         return self.chain.build_message()

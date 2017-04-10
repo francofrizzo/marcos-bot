@@ -62,7 +62,7 @@ class Log:
 
 
 class MarcosBot:
-    public_commands = ["start", "message", "beginwith", "endwith", "use", "chain", "reversechain"]
+    public_commands = ["start", "message", "beginwith", "endwith", "use", "chain", "reversechain", "someone"]
     private_commands = ["setrandomness", "backup"]
 
     def __init__(self, token, special_users, log_file=None, easter_eggs={}, conv_overrides={}, log_to_stdout=True):
@@ -124,6 +124,7 @@ class MarcosBot:
 
             conversation.add_message(text)
             self.log.log_m("Added: " + text, message)
+            conversation.add_someone(get_full_name(message))
 
         else:
             self.log.log_m("Ignored non-text message (content type: " + content_type + ")", message)
@@ -218,6 +219,21 @@ class MarcosBot:
             if match:
                 count = len(match.group(1))
                 self._send_fragmented(conversation.chat_id, "ayy" + "".join(["y" for i in range(count)]))
+
+    def handle_someone(self, message, conversation, args):
+        if not conversation.is_there_someone():
+            generated_message = "No one has spoken yet!"
+        else:
+            generated_message = []
+            for word in args:
+                if word == "___":
+                    someeone = conversation.get_someone()
+                    generated_message.push(someone)
+                else:
+                    generated_message.push(word)
+            generated_message = " ".join(generated_message)
+        self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+        self.log.log_m("Generated: " + generated_message, message)
 
     def import_chain(self, chat_id, filename):
         chat_id = int(chat_id)
