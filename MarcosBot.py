@@ -141,6 +141,8 @@ class MarcosBot:
         self.log.log_m("Generated: " + generated_message, message)
 
     def handle_beginwith(self, message, conversation, args):
+        if conversation.is_there_someone():
+            args = [conversation.get_someone() if word == "@" else word for word in args]
         if len(args) > 0:
             generated_message = conversation.generate_message_beginning_with(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -150,6 +152,8 @@ class MarcosBot:
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_endwith(self, message, conversation, args):
+        if conversation.is_there_someone():
+            args = [conversation.get_someone() if word == "@" else word for word in args]
         if len(args) > 0:
             generated_message = conversation.generate_message_ending_with(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
