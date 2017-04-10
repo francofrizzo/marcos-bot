@@ -226,7 +226,7 @@ class MarcosBot:
         else:
             generated_message = []
             for word in args:
-                if word == "___":
+                if word == "@":
                     someone = conversation.get_someone()
                     generated_message.append(someone)
                 else:
