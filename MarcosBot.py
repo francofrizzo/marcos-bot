@@ -292,7 +292,7 @@ class MarcosBot:
         for word in message:
             if word == "@":
                 someone = conversation.get_someone()
-                generated_message.append(someone)
+                generated_message.extend(someone.split())
             else:
                 generated_message.append(word)
         return generated_message
