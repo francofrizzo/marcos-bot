@@ -142,7 +142,7 @@ class MarcosBot:
 
     def handle_beginwith(self, message, conversation, args):
         if conversation.is_there_someone():
-            args = [conversation.get_someone() if word == "@" else word for word in args]
+            args = self._replace_people(conversation, args)
         if len(args) > 0:
             generated_message = conversation.generate_message_beginning_with(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -153,7 +153,7 @@ class MarcosBot:
 
     def handle_endwith(self, message, conversation, args):
         if conversation.is_there_someone():
-            args = [conversation.get_someone() if word == "@" else word for word in args]
+            args = self._replace_people(conversation, args)
         if len(args) > 0:
             generated_message = conversation.generate_message_ending_with(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -163,6 +163,8 @@ class MarcosBot:
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_use(self, message, conversation, args):
+        if conversation.is_there_someone():
+            args = self._replace_people(conversation, args)
         if len(args) > 0:
             generated_message = conversation.generate_message_containing(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -228,14 +230,7 @@ class MarcosBot:
         if not conversation.is_there_someone():
             generated_message = "No one has spoken yet!"
         else:
-            generated_message = []
-            for word in args:
-                if word == "@":
-                    someone = conversation.get_someone()
-                    generated_message.append(someone)
-                else:
-                    generated_message.append(word)
-            generated_message = " ".join(generated_message)
+            generated_message = " ".join(self._replace_people(conversation, args)).lower()
         self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
         self.log.log_m("Generated (/someone): " + generated_message, message)
 
@@ -291,6 +286,16 @@ class MarcosBot:
                                 break
                 message = " ".join(message)
         return message
+
+    def _replace_people(self, conversation, message):
+        generated_message = []
+        for word in message:
+            if word == "@":
+                someone = conversation.get_someone()
+                generated_message.append(someone)
+            else:
+                generated_message.append(word)
+        return generated_message
 
     def _send_fragmented(self, chat_id, message, **kwargs):
         while len(message) > 2048:
