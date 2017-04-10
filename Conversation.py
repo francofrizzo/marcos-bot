@@ -18,14 +18,14 @@ class Conversation:
         message.reverse()
         self.reverse_chain.add_message(message)
 
-    def add_someone(someone):
+    def add_someone(self, someone):
         self.someones.add(someone)
 
-    def is_there_someone():
+    def is_there_someone(self,):
         return len(self.someones) > 0
 
-    def get_someone():
-        if len(someone) > 0:
+    def get_someone(self):
+        if len(self.someones) > 0:
             return random.sample(self.someones, 1)[0]
 
     def generate_message(self):

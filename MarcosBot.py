@@ -227,10 +227,10 @@ class MarcosBot:
             generated_message = []
             for word in args:
                 if word == "___":
-                    someeone = conversation.get_someone()
-                    generated_message.push(someone)
+                    someone = conversation.get_someone()
+                    generated_message.append(someone)
                 else:
-                    generated_message.push(word)
+                    generated_message.append(word)
             generated_message = " ".join(generated_message)
         self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
         self.log.log_m("Generated: " + generated_message, message)
