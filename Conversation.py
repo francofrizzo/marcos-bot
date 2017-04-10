@@ -28,6 +28,9 @@ class Conversation:
         if len(self.someones) > 0:
             return random.sample(self.someones, 1)[0]
 
+    def get_someones(self):
+        return ", ".join(self.someones)
+
     def generate_message(self):
         return self.chain.build_message()
 

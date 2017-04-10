@@ -62,7 +62,7 @@ class Log:
 
 
 class MarcosBot:
-    public_commands = ["start", "message", "beginwith", "endwith", "use", "chain", "reversechain", "someone"]
+    public_commands = ["start", "message", "beginwith", "endwith", "use", "chain", "reversechain", "someone", "people"]
     private_commands = ["setrandomness", "backup"]
 
     def __init__(self, token, special_users, log_file=None, easter_eggs={}, conv_overrides={}, log_to_stdout=True):
@@ -233,7 +233,14 @@ class MarcosBot:
                     generated_message.append(word)
             generated_message = " ".join(generated_message)
         self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
-        self.log.log_m("Generated: " + generated_message, message)
+        self.log.log_m("Generated (/someone): " + generated_message, message)
+
+    def handle_people(self, message, conversation, args):
+        generated_message = conversation.get_someones()
+        if generated_message == "":
+            generated_message = "No one has spoken yet!"
+        self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
+        self.log.log_m("Printed list of people: " + generated_message, message)
 
     def import_chain(self, chat_id, filename):
         chat_id = int(chat_id)
