@@ -24,6 +24,9 @@ class Conversation:
     def is_there_someone(self,):
         return len(self.someones) > 0
 
+    def get_someone(self, quantity):
+        return random.sample(self.someones,quantity)
+        
     def get_someone(self):
         if len(self.someones) > 0:
             return random.sample(self.someones, 1)[0]

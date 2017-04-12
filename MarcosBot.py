@@ -289,12 +289,27 @@ class MarcosBot:
 
     def _replace_people(self, conversation, message):
         generated_message = []
+        symbols = {}
         for word in message:
-            if word == "@":
-                someone = conversation.get_someone()
-                generated_message.extend(someone.split())
+            if word[0] == "@":
+                symbols[word] = None
+
+        if len(symbols) > len(conversation.someones):
+            return "No enough someones".split()
+
+        generated_names = conversation.get_someone(len(symbols))
+
+        i = 0
+        for k,v in symbols.iteritems():
+            v = generated_names[i]
+            i += 1
+
+        for word in message:
+            if word[0] == "@":
+                generated_message.append(symbols[word])
             else:
                 generated_message.append(word)
+
         return generated_message
 
     def _send_fragmented(self, chat_id, message, **kwargs):
