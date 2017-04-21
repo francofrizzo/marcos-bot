@@ -308,12 +308,12 @@ class MarcosBot:
             return False
 
         for word in symbols:
-            symbols[word] = someones.next()
+            symbols[word] = someones.next().split()
             print symbols[word]
 
         for word in message:
             if word in symbols:
-                generated_message.append(symbols[word])
+                generated_message.extend(symbols[word])
             else:
                 generated_message.append(word)
 
