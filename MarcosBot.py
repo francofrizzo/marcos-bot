@@ -9,7 +9,7 @@ import argparse
 import signal
 import random
 import json
-
+import re
 
 # Replace ascii with utf-8 encoding
 import sys
@@ -141,8 +141,10 @@ class MarcosBot:
         self.log.log_m("Generated: " + generated_message, message)
 
     def handle_beginwith(self, message, conversation, args):
-        if conversation.is_there_someone():
-            args = self._replace_people(conversation, args)
+        people_replaced_args = self._replace_people(conversation, args)
+        if people_replaced_args:
+            args = people_replaced_args
+
         if len(args) > 0:
             generated_message = conversation.generate_message_beginning_with(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -152,8 +154,10 @@ class MarcosBot:
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_endwith(self, message, conversation, args):
-        if conversation.is_there_someone():
-            args = self._replace_people(conversation, args)
+        people_replaced_args = self._replace_people(conversation, args)
+        if people_replaced_args:
+            args = people_replaced_args
+
         if len(args) > 0:
             generated_message = conversation.generate_message_ending_with(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -163,8 +167,10 @@ class MarcosBot:
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_use(self, message, conversation, args):
-        if conversation.is_there_someone():
-            args = self._replace_people(conversation, args)
+        people_replaced_args = self._replace_people(conversation, args)
+        if people_replaced_args:
+            args = people_replaced_args
+
         if len(args) > 0:
             generated_message = conversation.generate_message_containing(args)
             self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
@@ -206,8 +212,6 @@ class MarcosBot:
             self._send_fragmented(conversation.chat_id, "An argument seems to be missing!")
 
     def handle_ayylmao(self, text, conversation):
-        import re
-
         match = re.search('rip', text, flags=re.IGNORECASE)
         if match:
             self._send_fragmented(conversation.chat_id, "in pieces")
@@ -227,10 +231,9 @@ class MarcosBot:
                 self._send_fragmented(conversation.chat_id, "ayy" + "".join(["y" for i in range(count)]))
 
     def handle_someone(self, message, conversation, args):
-        if not conversation.is_there_someone():
-            generated_message = "No one has spoken yet!"
-        else:
-            generated_message = " ".join(self._replace_people(conversation, args)).lower()
+        generated_message = " ".join(self._replace_people(conversation, args)).lower()
+        if not generated_message:
+            generated_message = "Not enough people have spoken yet!".split()
         self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
         self.log.log_m("Generated (/someone): " + generated_message, message)
 
@@ -290,22 +293,22 @@ class MarcosBot:
     def _replace_people(self, conversation, message):
         generated_message = []
         symbols = {}
+
         for word in message:
-            if word[0] == "@":
+            match = re.search('^@\d$', word)
+            if match:
                 symbols[word] = None
 
         if len(symbols) > len(conversation.someones):
-            return "No enough someones".split()
+            return False
 
-        generated_names = conversation.get_someone(len(symbols))
+        generated_names = iter(conversation.get_someone(quantity=len(symbols)))
 
-        i = 0
-        for k,v in symbols.iteritems():
-            v = generated_names[i]
-            i += 1
+        for symbol in symbols:
+            symbols[symbol] = generated_names.next()
 
         for word in message:
-            if word[0] == "@":
+            if word in symbols:
                 generated_message.append(symbols[word])
             else:
                 generated_message.append(word)
