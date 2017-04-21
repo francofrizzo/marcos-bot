@@ -26,7 +26,8 @@ class Conversation:
 
     def get_someone(self, quantity=False):
         if quantity:
-            return random.sample(self.someones, quantity)
+            if len(self.someones) >= quantity:
+                return random.sample(self.someones, quantity)
         else:
             if len(self.someones) > 0:
                 return random.sample(self.someones, 1)[0]

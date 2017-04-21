@@ -231,9 +231,11 @@ class MarcosBot:
                 self._send_fragmented(conversation.chat_id, "ayy" + "".join(["y" for i in range(count)]))
 
     def handle_someone(self, message, conversation, args):
-        generated_message = " ".join(self._replace_people(conversation, args)).lower()
-        if not generated_message:
-            generated_message = "Not enough people have spoken yet!".split()
+        generated_message = self._replace_people(conversation, args)
+        if generated_message == False:
+            generated_message = "Not enough people have spoken yet!"
+        else:
+            generated_message = " ".join(generated_message).lower()
         self._send_fragmented(conversation.chat_id, self._apply_easter_eggs(generated_message, conversation.chat_id))
         self.log.log_m("Generated (/someone): " + generated_message, message)
 
@@ -295,17 +297,19 @@ class MarcosBot:
         symbols = {}
 
         for word in message:
-            match = re.search('^@\d$', word)
+            match = re.search('^@\d?$', word)
             if match:
                 symbols[word] = None
 
-        if len(symbols) > len(conversation.someones):
+        someones = conversation.get_someone(quantity=len(symbols))
+        if someones:
+            someones = iter(someones)
+        else:
             return False
 
-        generated_names = iter(conversation.get_someone(quantity=len(symbols)))
-
-        for symbol in symbols:
-            symbols[symbol] = generated_names.next()
+        for word in symbols:
+            symbols[word] = someones.next()
+            print symbols[word]
 
         for word in message:
             if word in symbols:
